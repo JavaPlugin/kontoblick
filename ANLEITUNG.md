@@ -1,7 +1,7 @@
 # Kontoblick in Home Assistant
 
 Die App läuft danach im Vollbild auf dem iPhone, ohne claude.ai-Leiste. Die Daten liegen in deinem Home Assistant.
-Erinnerungen vor Abbuchungen schickt Home Assistant per Push über die Companion-App.
+Jeder Home-Assistant-Benutzer hat eigene Daten. Erinnerungen vor Abbuchungen kommen per Push über die Companion-App.
 
 Voraussetzungen: Home Assistant 2024.10 oder neuer, HACS installiert.
 
@@ -45,48 +45,30 @@ Token kopieren. Er wird nur einmal angezeigt.
 Ab jetzt startet Kontoblick wie eine normale App im Vollbild.
 Ohne Netz zeigt die App den letzten Stand. Neue Buchungen werden gespeichert, sobald wieder eine Verbindung besteht.
 
-## 5. Push-Erinnerungen einrichten
+## 5. Push-Erinnerungen einschalten
 
-Einstellungen → Automationen & Szenen → „Automation erstellen“ → „Neue Automation“ → oben rechts ⋮ → „In YAML bearbeiten“.
-Folgendes einfügen und `notify.mobile_app_DEIN_IPHONE` durch deinen Dienst ersetzen.
-Du findest ihn unter Entwicklerwerkzeuge → Aktionen, Suche nach „mobile_app“.
+In der App unter **Planung → Erinnerungen** dein Handy auswählen und auf „Testnachricht senden“ tippen.
+Ab dann schickt Kontoblick täglich um 9 Uhr eine Nachricht:
+- vor jeder Abbuchung mit Datum, so viele Tage vorher wie unter „Warnung Tage vorher“ eingestellt
+- 14 Tage vor jeder Kündigungsfrist
 
-```yaml
-alias: Kontoblick Erinnerung
-description: Push 2 Tage vor jeder Abbuchung (9 Uhr) und 14 Tage vor Kündigungsfristen
-triggers:
-  - trigger: calendar
-    event: start
-    entity_id: calendar.kontoblick
-    offset: "-39:00:00"
-    id: abbuchung
-  - trigger: calendar
-    event: start
-    entity_id: calendar.kontoblick
-    offset: "-327:00:00"
-    id: kuendigung
-conditions:
-  - condition: template
-    value_template: >
-      {% set s = trigger.calendar_event.summary %}
-      {{ (trigger.id == 'abbuchung' and not s.startswith('+') and not s.startswith('Kündigungsfrist'))
-         or (trigger.id == 'kuendigung' and s.startswith('Kündigungsfrist')) }}
-actions:
-  - action: notify.mobile_app_DEIN_IPHONE
-    data:
-      title: >
-        {{ 'Kündigungsfrist in 14 Tagen' if trigger.id == 'kuendigung' else 'Abbuchung übermorgen' }}
-      message: >
-        {{ trigger.calendar_event.summary }} am {{ as_timestamp(trigger.calendar_event.start) | timestamp_custom('%d.%m.') }}
-mode: queued
-```
+Eine eigene Automation ist dafür nicht nötig.
+**Von Version 1.0 umgestiegen?** Die alte Automation „Kontoblick Erinnerung“ löschen. Den Kalender `calendar.kontoblick` gibt es nicht mehr.
 
-So kommen die Uhrzeiten zustande: Termine beginnen um 0:00 Uhr. `-39:00:00` ergibt 9:00 Uhr zwei Tage vorher, `-327:00:00` ergibt 9:00 Uhr 14 Tage vorher.
+## Mehrere Benutzer
+
+Jeder Home-Assistant-Benutzer hat in Kontoblick seine eigenen Daten.
+Welche Daten die App zeigt, hängt am Zugangs-Token: Er gehört immer zu dem Benutzer, der ihn erstellt hat.
+Andere Benutzer kommen an diese Daten nicht heran, auch Administratoren nicht über die App.
+
+Für eine weitere Person:
+1. Die Person meldet sich in Home Assistant mit **ihrem eigenen** Konto an und erstellt dort ihren Token.
+2. Dann installiert sie die App wie in Schritt 4 beschrieben. Sie startet mit einem leeren Kontoblick.
+
+Daten aus Version 1.0 gehören nach dem Update dem Besitzer der Home-Assistant-Installation, also dem Konto, das sie eingerichtet hat.
 
 ## Gut zu wissen
 
-- **Kalender:** Alle Posten mit Abbuchungstag erscheinen im Kalender `calendar.kontoblick`, dazu die Kündigungsfristen.
-  Änderungen in der App sind sofort im Kalender.
 - **Neues Gerät:** Den Token änderst du in der App unter Planung → Verbindung → Abmelden.
   Danach mit einem neuen Token wieder verbinden.
 - **Sicherheit:** Die App-Dateien unter `/kontoblick/` enthalten keine Daten.

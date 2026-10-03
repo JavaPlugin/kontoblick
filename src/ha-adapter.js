@@ -19,7 +19,7 @@ async function req(method,body,tok){
 }
 async function pull(){
   if(!token)return;
-  try{const j=await req('GET');if(j.rev!==rev){docs=j.docs||{};rev=j.rev;apply(pending);saveCache();emit()}setStatus(pending.length?'sync':'ok')}
+  try{const j=await req('GET');if(j.user&&j.user!==KB.user){KB.user=j.user;LS.set('kb_user',j.user);emit()}if(j.rev!==rev){docs=j.docs||{};rev=j.rev;apply(pending);saveCache();emit()}setStatus(pending.length?'sync':'ok')}
   catch(e){if(e.auth){KB.needToken=true;KB.onAuth&&KB.onAuth()}else setStatus('offline')}
 }
 let flushing=false,timer=null;
@@ -55,9 +55,12 @@ const db={doc:docRef,collection:colRef};
 window.claude={use:async n=>n==='db'&&token?db:null};
 KB.tryToken=async t=>{t=t.trim();if(!t)return 'Bitte den Token einfügen.';
   try{await req('GET',null,t)}catch(e){return e.auth?'Home Assistant hat den Token abgelehnt. Prüfe, ob er vollständig kopiert wurde.':'Home Assistant ist gerade nicht erreichbar. Prüfe die Verbindung und versuche es erneut.'}
-  LS.set('kb_token',t);LS.del('kb_cache');location.reload();return null};
-KB.logout=()=>{LS.del('kb_token');LS.del('kb_cache');location.reload()};
+  LS.set('kb_token',t);LS.del('kb_cache');LS.del('kb_user');location.reload();return null};
+KB.logout=()=>{LS.del('kb_token');LS.del('kb_cache');LS.del('kb_user');location.reload()};
 KB.syncNow=()=>{flush();pull()};
+KB.user=LS.get('kb_user');
+KB.loadNotify=async()=>{try{const r=await fetch('/api/kontoblick/notify',{cache:'no-store',headers:{'Authorization':'Bearer '+token}});KB.notify=r.ok?(await r.json()).services||[]:[]}catch(e){KB.notify=[]}};
+KB.testNotify=async()=>{await flush();try{const r=await fetch('/api/kontoblick/notify',{method:'POST',headers:{'Authorization':'Bearer '+token}});return r.ok?(await r.json()).result:'error'}catch(e){return 'offline'}};
 if(token){pull().then(flush);setInterval(()=>{flush();pull()},30000)}
 document.addEventListener('visibilitychange',()=>{if(!document.hidden)KB.syncNow()});
 window.addEventListener('online',()=>KB.syncNow());

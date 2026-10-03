@@ -19,7 +19,7 @@ const endTok='Kalender exportieren</button></div></section>`;';const b=src.index
 if(a<0||b<0)throw new Error('cal section');
 src=src.slice(0,a)+frag.CALSECTION.trimEnd()+src.slice(b+endTok.length);
 rep('data-set="restLabel"></div></div></section>`;','data-set="restLabel"></div></div></section>`;\n'+frag.PLANEXTRA.trimEnd());
-rep("    if(act==='ics')return exportIcs();","    if(act==='ics')return exportIcs();\n    if(act==='syncnow'){KB.syncNow();toast('Wird synchronisiert');return}\n    if(act==='logout'){if(S.confirm!=='logout'){S.confirm='logout';render();return}KB.logout();return}");
+rep("    if(act==='ics')return exportIcs();","    if(act==='ics')return exportIcs();\n    if(act==='syncnow'){KB.syncNow();toast('Wird synchronisiert');return}\n    if(act==='testnotify'){KB.testNotify().then(r=>toast({sent:'Testnachricht gesendet',no_service:'Dieses Gerät wurde in Home Assistant nicht gefunden.',nothing:'Nichts zu senden.',error:'Senden fehlgeschlagen. Details stehen im Home-Assistant-Protokoll.',offline:'Home Assistant ist gerade nicht erreichbar.'}[r]||'Senden fehlgeschlagen.'));return}\n    if(act==='logout'){if(S.confirm!=='logout'){S.confirm='logout';render();return}KB.logout();return}");
 rep('<div class="brand">Konto<span>blick</span></div>','<div style="display:flex;align-items:center"><div class="brand">Konto<span>blick</span></div><em id="syncPill" class="sync" hidden></em></div>');
 rep('<style>','<style>\n'+frag.BASECSS+'.sync{font-style:normal}\n');
 

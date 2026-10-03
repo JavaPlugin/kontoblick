@@ -4,8 +4,8 @@ Persönlicher Finanzplaner von Gehalt zu Gehalt, als Web-App für den iPhone-Hom
 Die Daten liegen in Home Assistant.
 
 - **App:** `https://<home-assistant>/kontoblick/index.html`, Vollbild, offline nutzbar
-- **Daten:** in Home Assistant gespeichert, nur mit Zugangs-Token abrufbar
-- **Kalender:** `calendar.kontoblick` mit Abbuchungen, Eingängen und Kündigungsfristen, für Push-Erinnerungen per Automation
+- **Daten:** in Home Assistant gespeichert, getrennt pro Home-Assistant-Benutzer, nur mit Zugangs-Token abrufbar
+- **Push:** täglich um 9 Uhr Erinnerungen vor Abbuchungen und Kündigungsfristen an das Handy, das man in der App wählt
 
 ## Installation über HACS
 

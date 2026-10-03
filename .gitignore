@@ -3,3 +3,4 @@ private/
 kontoblick_import.json
 *.zip
 __pycache__/
+.claude/

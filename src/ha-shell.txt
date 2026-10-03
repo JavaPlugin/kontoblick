@@ -52,9 +52,17 @@ html{-webkit-text-size-adjust:100%;-webkit-tap-highlight-color:transparent}
 </script>
 =====CALSECTION
   h+=`<section class="sec"><h2>Erinnerungen aufs iPhone</h2><div class="card pad" style="display:flex;flex-direction:column;gap:10px">
-    <p class="hint" style="color:var(--ink-2)">Alle Abbuchungen mit Datum und alle Kündigungsfristen stehen automatisch im Home-Assistant-Kalender <b>calendar.kontoblick</b>. Über die Automation „Kontoblick Erinnerung“ bekommst du eine Push-Nachricht aufs iPhone.</p>
-    <p class="hint">Änderungen hier landen sofort im Kalender, ein Export ist nicht mehr nötig.</p></div></section>`;
+    <p class="hint" style="color:var(--ink-2)">${cfg().notifyService?`Push-Nachrichten gehen an <b>${esc(cfg().notifyService.replace('mobile_app_',''))}</b>: täglich um 9 Uhr, ${cfg().remindDays} Tag(e) vor jeder Abbuchung mit Datum und 14 Tage vor jeder Kündigungsfrist.`:'Noch kein Handy für Push-Nachrichten gewählt. Das stellst du unter Planung → Erinnerungen ein.'}</p>
+    <p class="hint">Die Erinnerungen sind nur für dich. Andere Home-Assistant-Benutzer sehen deine Daten nicht.</p></div></section>`;
 =====PLANEXTRA
+  if(KB.notify===undefined){KB.notify=null;KB.loadNotify().then(render)}
+  const svc=c.notifyService||'',list=KB.notify||[];
+  h+=`<section class="sec"><h2>Erinnerungen</h2><div class="card pad" style="display:flex;flex-direction:column;gap:12px">
+    <div class="field"><label for="s-notify">Push-Nachrichten an</label><select class="in" id="s-notify" data-set="notifyService">
+      <option value="">Keine Push-Nachrichten</option>
+      ${[...new Set([...list,...(svc?[svc]:[])])].map(s=>`<option value="${esc(s)}" ${s===svc?'selected':''}>${esc(s.replace('mobile_app_',''))}${list.includes(s)?'':' (nicht gefunden)'}</option>`).join('')}
+    </select><span class="small muted">Angezeigt werden die Geräte mit der Home-Assistant-App. Erinnerung täglich um 9 Uhr, ${c.remindDays} Tag(e) vor jeder Abbuchung und 14 Tage vor Kündigungsfristen.</span></div>
+    <button class="btn ghost" data-act="testnotify" ${svc?'':'disabled'}>Testnachricht senden</button></div></section>`;
   h+=`<section class="sec"><h2>Verbindung</h2><div class="card pad" style="display:flex;flex-direction:column;gap:10px">
-    <p class="hint">Deine Daten liegen in Home Assistant. Der Zugangs-Token ist nur auf diesem Gerät gespeichert.</p>
+    <p class="hint">${KB.user?`Angemeldet als <b>${esc(KB.user)}</b>. `:''}Deine Daten liegen in Home Assistant und gehören nur zu deinem Benutzerkonto. Der Zugangs-Token ist nur auf diesem Gerät gespeichert.</p>
     <div class="btns"><button class="btn ghost" data-act="syncnow">Jetzt synchronisieren</button><button class="btn danger" data-act="logout">${S.confirm==='logout'?'Wirklich abmelden':'Abmelden'}</button></div></div></section>`;

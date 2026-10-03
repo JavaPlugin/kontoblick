@@ -282,7 +282,7 @@ async function req(method,body,tok){
 }
 async function pull(){
   if(!token)return;
-  try{const j=await req('GET');if(j.rev!==rev){docs=j.docs||{};rev=j.rev;apply(pending);saveCache();emit()}setStatus(pending.length?'sync':'ok')}
+  try{const j=await req('GET');if(j.user&&j.user!==KB.user){KB.user=j.user;LS.set('kb_user',j.user);emit()}if(j.rev!==rev){docs=j.docs||{};rev=j.rev;apply(pending);saveCache();emit()}setStatus(pending.length?'sync':'ok')}
   catch(e){if(e.auth){KB.needToken=true;KB.onAuth&&KB.onAuth()}else setStatus('offline')}
 }
 let flushing=false,timer=null;
@@ -318,9 +318,12 @@ const db={doc:docRef,collection:colRef};
 window.claude={use:async n=>n==='db'&&token?db:null};
 KB.tryToken=async t=>{t=t.trim();if(!t)return 'Bitte den Token einfügen.';
   try{await req('GET',null,t)}catch(e){return e.auth?'Home Assistant hat den Token abgelehnt. Prüfe, ob er vollständig kopiert wurde.':'Home Assistant ist gerade nicht erreichbar. Prüfe die Verbindung und versuche es erneut.'}
-  LS.set('kb_token',t);LS.del('kb_cache');location.reload();return null};
-KB.logout=()=>{LS.del('kb_token');LS.del('kb_cache');location.reload()};
+  LS.set('kb_token',t);LS.del('kb_cache');LS.del('kb_user');location.reload();return null};
+KB.logout=()=>{LS.del('kb_token');LS.del('kb_cache');LS.del('kb_user');location.reload()};
 KB.syncNow=()=>{flush();pull()};
+KB.user=LS.get('kb_user');
+KB.loadNotify=async()=>{try{const r=await fetch('/api/kontoblick/notify',{cache:'no-store',headers:{'Authorization':'Bearer '+token}});KB.notify=r.ok?(await r.json()).services||[]:[]}catch(e){KB.notify=[]}};
+KB.testNotify=async()=>{await flush();try{const r=await fetch('/api/kontoblick/notify',{method:'POST',headers:{'Authorization':'Bearer '+token}});return r.ok?(await r.json()).result:'error'}catch(e){return 'offline'}};
 if(token){pull().then(flush);setInterval(()=>{flush();pull()},30000)}
 document.addEventListener('visibilitychange',()=>{if(!document.hidden)KB.syncNow()});
 window.addEventListener('online',()=>KB.syncNow());
@@ -773,8 +776,8 @@ function vCal(){
   yr.sort((a,b)=>(a.date||new Date(a.y,a.m-1,1))-(b.date||new Date(b.y,b.m-1,1)));
   h+=`<section class="sec"><div class="sec-h"><h2>Größere Abbuchungen · 12 Monate</h2><span class="small muted num">${fmt(sum(yr.map(o=>o.it.amount)))}</span></div><div class="card list">${yr.length?yr.map(o=>`<div class="row"><div class="date"><span class="d">${o.date?o.date.getDate():'–'}</span><span class="w">${MON[o.m-1].slice(0,3)}</span></div><div class="r-main"><div class="r-title">${esc(o.it.name)}</div><div class="r-meta">${IV[o.it.interval].label} · ${o.y}</div></div><div class="r-amt num">−${fmt(o.it.amount)}</div></div>`).join(''):'<div class="empty">Keine jährlichen oder quartalsweisen Posten.</div>'}</div></section>`;
   h+=`<section class="sec"><h2>Erinnerungen aufs iPhone</h2><div class="card pad" style="display:flex;flex-direction:column;gap:10px">
-    <p class="hint" style="color:var(--ink-2)">Alle Abbuchungen mit Datum und alle Kündigungsfristen stehen automatisch im Home-Assistant-Kalender <b>calendar.kontoblick</b>. Über die Automation „Kontoblick Erinnerung“ bekommst du eine Push-Nachricht aufs iPhone.</p>
-    <p class="hint">Änderungen hier landen sofort im Kalender, ein Export ist nicht mehr nötig.</p></div></section>`;
+    <p class="hint" style="color:var(--ink-2)">${cfg().notifyService?`Push-Nachrichten gehen an <b>${esc(cfg().notifyService.replace('mobile_app_',''))}</b>: täglich um 9 Uhr, ${cfg().remindDays} Tag(e) vor jeder Abbuchung mit Datum und 14 Tage vor jeder Kündigungsfrist.`:'Noch kein Handy für Push-Nachrichten gewählt. Das stellst du unter Planung → Erinnerungen ein.'}</p>
+    <p class="hint">Die Erinnerungen sind nur für dich. Andere Home-Assistant-Benutzer sehen deine Daten nicht.</p></div></section>`;
   return h;
 }
 
@@ -796,8 +799,16 @@ function vPlan(){
     <div class="field"><label for="s-rem">Warnung Tage vorher</label><input class="in num" id="s-rem" inputmode="numeric" value="${esc(c.remindDays)}" data-set="remindDays"></div></div>
     <div class="field"><label for="s-cyc">Standard-Gehaltstag</label><input class="in num" id="s-cyc" inputmode="numeric" value="${esc(c.cycleDay||'')}" placeholder="automatisch: ${payDay()}." data-set="cycleDay"><span class="small muted">Bis zu diesem Tag rechnet „Reicht das Geld bis zum Gehalt?“. Hier beginnt auch jeder neue Zeitraum.</span></div>
     <div class="field"><label for="s-rest">Wohin geht der Rest?</label><input class="in" id="s-rest" value="${esc(c.restLabel)}" data-set="restLabel"></div></div></section>`;
+  if(KB.notify===undefined){KB.notify=null;KB.loadNotify().then(render)}
+  const svc=c.notifyService||'',list=KB.notify||[];
+  h+=`<section class="sec"><h2>Erinnerungen</h2><div class="card pad" style="display:flex;flex-direction:column;gap:12px">
+    <div class="field"><label for="s-notify">Push-Nachrichten an</label><select class="in" id="s-notify" data-set="notifyService">
+      <option value="">Keine Push-Nachrichten</option>
+      ${[...new Set([...list,...(svc?[svc]:[])])].map(s=>`<option value="${esc(s)}" ${s===svc?'selected':''}>${esc(s.replace('mobile_app_',''))}${list.includes(s)?'':' (nicht gefunden)'}</option>`).join('')}
+    </select><span class="small muted">Angezeigt werden die Geräte mit der Home-Assistant-App. Erinnerung täglich um 9 Uhr, ${c.remindDays} Tag(e) vor jeder Abbuchung und 14 Tage vor Kündigungsfristen.</span></div>
+    <button class="btn ghost" data-act="testnotify" ${svc?'':'disabled'}>Testnachricht senden</button></div></section>`;
   h+=`<section class="sec"><h2>Verbindung</h2><div class="card pad" style="display:flex;flex-direction:column;gap:10px">
-    <p class="hint">Deine Daten liegen in Home Assistant. Der Zugangs-Token ist nur auf diesem Gerät gespeichert.</p>
+    <p class="hint">${KB.user?`Angemeldet als <b>${esc(KB.user)}</b>. `:''}Deine Daten liegen in Home Assistant und gehören nur zu deinem Benutzerkonto. Der Zugangs-Token ist nur auf diesem Gerät gespeichert.</p>
     <div class="btns"><button class="btn ghost" data-act="syncnow">Jetzt synchronisieren</button><button class="btn danger" data-act="logout">${S.confirm==='logout'?'Wirklich abmelden':'Abmelden'}</button></div></div></section>`;
   return h;
 }
@@ -911,6 +922,7 @@ document.addEventListener('click',e=>{
     if(act==='addinc'){S.draft.kind='income';S.tab='spend';render();scrollTo(0,0);const a=document.getElementById('amt');if(a)a.focus();return}
     if(act==='ics')return exportIcs();
     if(act==='syncnow'){KB.syncNow();toast('Wird synchronisiert');return}
+    if(act==='testnotify'){KB.testNotify().then(r=>toast({sent:'Testnachricht gesendet',no_service:'Dieses Gerät wurde in Home Assistant nicht gefunden.',nothing:'Nichts zu senden.',error:'Senden fehlgeschlagen. Details stehen im Home-Assistant-Protokoll.',offline:'Home Assistant ist gerade nicht erreichbar.'}[r]||'Senden fehlgeschlagen.'));return}
     if(act==='logout'){if(S.confirm!=='logout'){S.confirm='logout';render();return}KB.logout();return}
     if(act==='newcat')return openCatSheet(null);
   }
