@@ -1,0 +1,60 @@
+=====HEAD
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Kontoblick">
+<meta name="theme-color" content="#EDF0EE" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0E1311" media="(prefers-color-scheme: dark)">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" type="image/png" href="icon-180.png">
+=====BASECSS
+:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;min-height:100vh}
+img{max-width:100%}
+[hidden]{display:none!important}
+html{-webkit-text-size-adjust:100%;-webkit-tap-highlight-color:transparent}
+.sync{font-size:11px;font-weight:600;padding:2px 8px;border-radius:999px;margin-left:8px;vertical-align:middle;font-family:var(--body)}
+.sync.offline{background:var(--warn-soft);color:var(--warn)}
+.sync.sync-busy{background:var(--surface-2);color:var(--ink-3)}
+.setup-steps{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:6px;font-size:14px;color:var(--ink-2)}
+=====SETUP
+<div id="setup" class="scrim" hidden><form class="sheet" id="setupForm" aria-label="Mit Home Assistant verbinden">
+  <div class="grab"></div>
+  <h2>Mit Home Assistant verbinden</h2>
+  <p class="hint" style="color:var(--ink-2)">Kontoblick speichert deine Daten in deinem Home Assistant. Dafür braucht die App einmalig einen Zugangs-Token.</p>
+  <ol class="setup-steps">
+    <li>Öffne Home Assistant und tippe unten links auf deinen Namen (Profil).</li>
+    <li>Reiter „Sicherheit“ → ganz unten „Langlebige Zugangs-Token“ → „Token erstellen“, Name z. B. „Kontoblick“.</li>
+    <li>Token kopieren und hier einfügen. Er wird nur auf diesem Gerät gespeichert.</li>
+  </ol>
+  <div class="field"><label for="tok">Zugangs-Token</label><input class="in" id="tok" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="eyJ0eXAiOiJKV1Qi…"></div>
+  <p class="hint" id="tokErr" role="alert" style="color:var(--bad)"></p>
+  <button class="btn full" type="submit" id="tokBtn">Verbinden</button>
+</form></div>
+<script>
+(function(){
+  const box=document.getElementById('setup'),form=document.getElementById('setupForm'),err=document.getElementById('tokErr'),btn=document.getElementById('tokBtn');
+  const show=()=>{box.hidden=false};
+  if(KB.needToken)show();KB.onAuth=show;
+  form.addEventListener('submit',async e=>{e.preventDefault();btn.disabled=true;btn.textContent='Verbinde …';err.textContent='';
+    const msg=await KB.tryToken(document.getElementById('tok').value);if(msg){err.textContent=msg;btn.disabled=false;btn.textContent='Verbinden'}});
+  const pill=document.getElementById('syncPill');
+  KB.onStatus=s=>{if(!pill)return;pill.hidden=s==='ok'||!s;pill.className='sync '+(s==='offline'?'offline':'sync-busy');pill.textContent=s==='offline'?'offline':'speichert …'};
+  if(KB.status)KB.onStatus(KB.status);
+  if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
+})();
+</script>
+=====CALSECTION
+  h+=`<section class="sec"><h2>Erinnerungen aufs iPhone</h2><div class="card pad" style="display:flex;flex-direction:column;gap:10px">
+    <p class="hint" style="color:var(--ink-2)">Alle Abbuchungen mit Datum und alle Kündigungsfristen stehen automatisch im Home-Assistant-Kalender <b>calendar.kontoblick</b>. Über die Automation „Kontoblick Erinnerung“ bekommst du eine Push-Nachricht aufs iPhone.</p>
+    <p class="hint">Änderungen hier landen sofort im Kalender, ein Export ist nicht mehr nötig.</p></div></section>`;
+=====PLANEXTRA
+  h+=`<section class="sec"><h2>Verbindung</h2><div class="card pad" style="display:flex;flex-direction:column;gap:10px">
+    <p class="hint">Deine Daten liegen in Home Assistant. Der Zugangs-Token ist nur auf diesem Gerät gespeichert.</p>
+    <div class="btns"><button class="btn ghost" data-act="syncnow">Jetzt synchronisieren</button><button class="btn danger" data-act="logout">${S.confirm==='logout'?'Wirklich abmelden':'Abmelden'}</button></div></div></section>`;

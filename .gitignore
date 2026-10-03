@@ -1,0 +1,5 @@
+# Persönliche Daten und Pakete – niemals hochladen
+private/
+kontoblick_import.json
+*.zip
+__pycache__/
