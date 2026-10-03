@@ -20,7 +20,9 @@ Einrichtung der App, des Tokens und der Push-Erinnerungen: siehe [ANLEITUNG.md](
 
 ## Entwicklung
 
-- `src/kontoblick.html`: die App selbst
+- `core/core.js`: Rechenkern (Gehaltszeitraum, Monatsplan, Prognose, Migration), reine Funktionen in Cent
+- `tests/`: Tests für den Rechenkern, Start mit `node --test tests/core.test.js`
+- `src/kontoblick.html`: die App-Oberfläche
 - `src/ha-adapter.js`: Speicherung über Home Assistant
 - `src/ha-shell.txt`: iPhone-Rahmen und Anmeldung
 - `custom_components/kontoblick/`: die Integration

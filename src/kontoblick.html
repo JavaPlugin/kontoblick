@@ -266,13 +266,9 @@ const NOWKEY=()=>mk(now.getFullYear(),now.getMonth()+1);
 function legacyFields(doc){const {id,versions,...f}=doc;return f}
 // vfrom = ab welchem Monat eine Version gilt (nicht verwechseln mit dem Feld from = „Gilt ab“ des Postens)
 const vf=v=>v.vfrom||'0000-00';
-function resolve(doc,key){
-  if(!doc.versions)return doc;
-  let v=null;for(const x of doc.versions)if(vf(x)<=key)v=x;
-  if(!v||v.removed)return null;
-  const {vfrom,removed,...f}=v;return{id:doc.id,...f,_since:vf(v)};
-}
-const itemsAt=key=>(S.raw||[]).map(d=>resolve(d,key)).filter(Boolean);
+const K=KBCore,E=c=>c/100; // Rechenkern (core/core.js) rechnet in Cent, die Oberfläche zeigt Euro
+const resolve=K.resolve;
+const itemsAt=key=>K.itemsAt(S.raw,key);
 function refreshItems(){if(S.raw)S.items=itemsAt(VKEY())}
 function saveItemFrom(out,key){
   const doc=(S.raw||[]).find(d=>d.id===out.id);
@@ -290,95 +286,46 @@ function removeItemFrom(id,key){
   S.raw=S.raw.map(d=>d.id===id?{id,...body}:d);refreshItems();
   if(S.db)queue('it'+id,()=>S.db.collection('items').doc(id).set(body));
 }
-function catVersions(){const c=cfg();return c.catVersions&&c.catVersions.length?c.catVersions:[{from:'0000-00',cats:c.flexCats}]}
-function catsAt(key){const vs=catVersions();let v=vs[0];for(const x of vs)if(x.from<=key)v=x;return v.cats||[]}
+const catVersions=()=>K.catVersions(cfg());
+const catsAt=key=>K.catsAt(cfg(),key);
 function saveCatsFrom(cats,key){saveCfg({catVersions:[...catVersions().filter(v=>v.from<key),{from:key,cats}],flexCats:cats})}
 const sinceNote=()=>`Gilt ab ${MON[S.m-1]} ${S.y} und für alle folgenden Monate. Frühere Monate bleiben unverändert, damit du zurückblicken kannst.`;
 
 
-function payDay(){
-  const c=+cfg().cycleDay;if(c>=1&&c<=31)return c;
-  const inc=itemsAt(NOWKEY()).filter(i=>i.kind==='income'&&!i.paused&&i.day&&(i.interval||'monthly')==='monthly').sort((a,b)=>b.amount-a.amount)[0];
-  return inc?inc.day:1;
-}
-function cycleOf(y,m){
-  const pd=payDay(),start=new Date(y,m-1,Math.min(pd,dim(y,m)));
-  const ny=m===12?y+1:y,nm=m===12?1:m+1,end=addDays(new Date(ny,nm-1,Math.min(pd,dim(ny,nm))),-1);
-  return{start,end,keys:pd===1?[mk(y,m)]:[mk(y,m),mk(ny,nm)]};
-}
-function cycleForDate(d){
-  const y=d.getFullYear(),m=d.getMonth()+1;
-  if(d>=cycleOf(y,m).start)return{y,m};
-  return m===1?{y:y-1,m:12}:{y,m:m-1};
-}
+const payDay=()=>K.payDay(cfg(),S.raw||[],NOWKEY());
+const cycleOf=(y,m)=>K.cycleOf(payDay(),y,m);
+const cycleForDate=d=>K.cycleForDate(payDay(),d);
 const curCycle=()=>cycleForDate(today0());
 const isCurrent=()=>{const c=curCycle();return S.y===c.y&&S.m===c.m};
 const cyc=()=>cycleOf(S.y,S.m);
 const cycText=c=>c.start.getDate()===1&&c.start.getMonth()===c.end.getMonth()?'ganzer Monat':`${dm(c.start)}–${dm(c.end)}`;
 function refreshEntries(){
-  const c=cyc(),a=ymd(c.start),b=ymd(c.end),out=[];
-  for(const k of c.keys)for(const e of((S.docs[k]||{}).entries||[]))if(e.date>=a&&e.date<=b)out.push(e);
-  S.entries=out;S.incomeActual=(S.docs[mk(S.y,S.m)]||{}).incomeActual||{};
+  S.entries=K.cycleEntries(payDay(),S.y,S.m,S.docs);S.incomeActual=(S.docs[mk(S.y,S.m)]||{}).incomeActual||{};
 }
 
-/* ---------- Rechenlogik ---------- */
-const perMonth=it=>(+it.amount||0)/IV[it.interval||'monthly'].n;
-function active(it,y,m){if(it.paused)return false;const k=mk(y,m);if(it.from&&k<it.from)return false;if(it.until&&k>it.until)return false;return true}
-function hits(it,m){const n=IV[it.interval||'monthly'].n;if(n===1)return true;return(((m-(it.month||1))%n)+n)%n===0}
-function occ(it,y,m){if(!active(it,y,m)||!hits(it,m))return null;return{it,y,m,date:it.day?new Date(y,m-1,Math.min(it.day,dim(y,m))):null}}
-const monthOcc=(y,m)=>itemsAt(mk(y,m)).map(it=>occ(it,y,m)).filter(Boolean);
-function occBetween(a,b){
-  const out=[];let y=a.getFullYear(),m=a.getMonth()+1;const end=mk(b.getFullYear(),b.getMonth()+1);
-  while(mk(y,m)<=end){for(const o of monthOcc(y,m))if(o.date&&o.date>=a&&o.date<=b)out.push(o);if(++m>12){m=1;y++}}
-  return out.sort((p,q)=>p.date-q.date||(p.it.kind==='income')-(q.it.kind==='income'));
-}
+/* ---------- Rechenlogik: core/core.js, hier nur Umrechnung Cent → Euro ---------- */
+const ctxNow=()=>({raw:S.raw||[],cfg:cfg(),pd:payDay()});
+const perMonth=it=>E(K.perMonthCents(it));
+const active=K.active,hits=K.hits,occ=K.occ,nextCancel=K.nextCancel;
+const monthOcc=(y,m)=>K.monthOcc(S.raw||[],y,m);
+const occBetween=(a,b)=>K.occBetween(S.raw||[],a,b);
 const isInc=e=>e.kind==='income';
-function incomeOf(it,actual){const a=actual&&actual[it.id];return typeof a==='number'?a:perMonth(it)}
+const incomeOf=(it,actual)=>E(K.incomeOfCents(it,actual));
 function plan(y,m,allEntries,actual){
-  const its=itemsAt(mk(y,m)).filter(it=>active(it,y,m)),c=cfg();
-  const entries=allEntries.filter(e=>!isInc(e));
-  const oneOff=sum(allEntries.filter(isInc).map(e=>e.amount));
-  const regular=sum(its.filter(i=>i.kind==='income').map(i=>incomeOf(i,actual)));
-  const income=regular+oneOff;
-  const fixed=sum(its.filter(i=>i.kind==='expense'&&(i.interval||'monthly')==='monthly').map(perMonth));
-  const reserve=sum(its.filter(i=>i.kind==='expense'&&(i.interval||'monthly')!=='monthly').map(perMonth));
-  const savings=sum(its.filter(i=>i.kind==='saving').map(perMonth));
-  const fc=catsAt(mk(y,m)),ids=new Set(fc.map(x=>x.id));
-  const cats=fc.map(x=>{const spent=sum(entries.filter(e=>e.cat===x.id).map(e=>e.amount));return{...x,spent,planned:Math.max(+x.budget||0,spent)}});
-  const orphan=sum(entries.filter(e=>!ids.has(e.cat)).map(e=>e.amount));
-  const flex=sum(cats.map(x=>x.planned))+orphan;
-  const flexLeft=sum(cats.map(x=>Math.max(0,(+x.budget||0)-x.spent)));
-  return{income,regular,oneOff,fixed,reserve,savings,flex,flexLeft,cats,orphan,rest:income-fixed-reserve-flex-savings};
-}
-function nextCancel(it,from){
-  if(!it.cancelDay||!it.cancelMonth)return null;
-  let d=new Date(from.getFullYear(),it.cancelMonth-1,it.cancelDay);if(d<from)d=new Date(from.getFullYear()+1,it.cancelMonth-1,it.cancelDay);return d;
+  const p=K.plan(ctxNow(),y,m,allEntries,actual);
+  return{...p,income:E(p.income),regular:E(p.regular),oneOff:E(p.oneOff),fixed:E(p.fixed),reserve:E(p.reserve),savings:E(p.savings),
+    flex:E(p.flex),flexLeft:E(p.flexLeft),orphan:E(p.orphan),rest:E(p.rest),cats:p.cats.map(x=>({...x,spent:E(x.spent),planned:E(x.planned)}))};
 }
 function projection(){
-  const c=cfg();if(c.balance==null||isNaN(c.balance))return null;
-  const start=c.balanceDate?parseYmd(c.balanceDate):today0();
-  const sc=cycleForDate(start),end=addDays(cycleOf(sc.y,sc.m).end,1),inc=true;
-  const ev=occBetween(addDays(start,1),end).filter(o=>o.it.kind!=='income');
-  let bal=c.balance,min=bal,minAt=start;const rows=[];
-  // Flexible Ausgaben pro Kategorie: nach dem Kontostand gebuchte Beträge + was vom Ziel noch offen ist
-  const p=plan(S.y,S.m,S.entries,S.incomeActual),cats=[];
-  const after=e=>!isInc(e)&&(c.balanceTs&&e.ts?e.ts>c.balanceTs:e.date>ymd(start));
-  for(const x of p.cats){
-    const g=+x.budget||0,sa=sum(S.entries.filter(e=>e.cat===x.id&&after(e)).map(e=>e.amount));
-    const open=c.includeFlex&&g?Math.max(0,g-x.spent):0;
-    cats.push({name:x.name,goal:g,spent:x.spent,after:sa,open});
-    if(sa+open<=0)continue;
+  const pr=K.projection(ctxNow(),cfg(),S.y,S.m,S.entries,S.incomeActual,today0());if(!pr)return null;
+  const rows=pr.rows.map(r=>{
+    if(r.type!=='category')return{label:r.name,date:r.date,amount:E(r.amount),bal:E(r.bal)};
     const sub=[];
-    if(g)sub.push(`Ziel ${fmt(g)} − gebucht ${fmt(x.spent)} = offen ${fmt(open)}`);
-    if(sa>0)sub.push(`${fmt(sa)} nach dem Kontostand gebucht`);
-    bal-=sa+open;rows.push({label:x.name,sub:sub.join(' · '),date:null,amount:-(sa+open),bal});if(bal<min){min=bal;minAt=start}
-  }
-  const steps=ev.map(o=>({date:o.date,label:o.it.name,amount:-o.it.amount}));
-  for(const e of S.entries)if(isInc(e)){const d=parseYmd(e.date);if(d>start&&d<=end)steps.push({date:d,label:e.note||'Einmalige Einnahme',amount:+e.amount})}
-  steps.sort((a,b)=>a.date-b.date||a.amount-b.amount);
-  for(const s of steps){bal+=s.amount;rows.push({...s,bal});if(bal<min){min=bal;minAt=s.date}}
-  const status=min<0?'bad':min<(+c.buffer||0)?'warn':'good';
-  return{start,end,inc,rows,min,minAt,status,total:sum(ev.map(o=>+o.it.amount))};
+    if(r.goal)sub.push(`Ziel ${fmt(E(r.goal))} − gebucht ${fmt(E(r.spent))} = offen ${fmt(E(r.open))}`);
+    if(r.afterSpent>0)sub.push(`${fmt(E(r.afterSpent))} nach dem Kontostand gebucht`);
+    return{label:r.name,sub:sub.join(' · '),date:null,amount:E(r.amount),bal:E(r.bal)};
+  });
+  return{start:pr.start,end:pr.end,inc:true,rows,min:E(pr.min),minAt:pr.minAt,status:pr.status,total:E(pr.total)};
 }
 
 /* ---------- Speicher ---------- */

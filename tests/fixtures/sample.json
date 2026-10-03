@@ -1,0 +1,48 @@
+{
+  "docs": {
+    "config/main": {
+      "cycleDay": 15, "buffer": 100, "remindDays": 2, "restLabel": "Sparen", "includeFlex": true,
+      "flexCats": [{ "id": "essen", "name": "Essen", "budget": 350 }, { "id": "tanken", "name": "Tanken", "budget": 150.5 }, { "id": "frei", "name": "Freizeit", "budget": 0 }],
+      "catVersions": [
+        { "from": "0000-00", "cats": [{ "id": "essen", "name": "Essen", "budget": 300 }, { "id": "tanken", "name": "Tanken", "budget": 150.5 }] },
+        { "from": "2026-10", "cats": [{ "id": "essen", "name": "Essen", "budget": 350 }, { "id": "tanken", "name": "Tanken", "budget": 150.5 }, { "id": "frei", "name": "Freizeit", "budget": 0 }] }
+      ]
+    },
+    "items/lohn": { "name": "Lohn", "kind": "income", "amount": 2100.37, "interval": "monthly", "day": 15, "variable": true },
+    "items/neben": { "name": "Nebenjob", "kind": "income", "amount": 333.33, "interval": "quarterly", "month": 2, "day": 28 },
+    "items/miete": { "versions": [
+      { "vfrom": "0000-00", "name": "Miete Alt", "kind": "expense", "amount": 640, "interval": "monthly", "day": 15, "from": "", "until": "" },
+      { "vfrom": "2026-11", "name": "Miete Neu", "kind": "expense", "amount": 712.5, "interval": "monthly", "day": 1, "from": "", "until": "" }
+    ] },
+    "items/strom": { "name": "Strom", "kind": "expense", "amount": 61.99, "interval": "monthly", "day": 31 },
+    "items/handy": { "name": "Handy", "kind": "expense", "amount": 9.99, "interval": "monthly", "day": null },
+    "items/versich": { "name": "Haftpflicht", "kind": "expense", "amount": 71.33, "interval": "yearly", "month": 3, "day": 1, "cancelDay": 31, "cancelMonth": 12 },
+    "items/gez": { "name": "Rundfunk", "kind": "expense", "amount": 55.08, "interval": "quarterly", "month": 1, "day": 15 },
+    "items/abo": { "name": "Abo", "kind": "expense", "amount": 44.9, "interval": "halfyearly", "month": 4, "day": 8 },
+    "items/gym": { "name": "Fitness", "kind": "expense", "amount": 29.99, "interval": "monthly", "day": 1, "until": "2026-12" },
+    "items/alt": { "versions": [
+      { "vfrom": "0000-00", "name": "Altvertrag", "kind": "expense", "amount": 12.34, "interval": "monthly", "day": 20 },
+      { "vfrom": "2026-10", "removed": true }
+    ] },
+    "items/pause": { "name": "Pausiert", "kind": "expense", "amount": 99, "interval": "monthly", "day": 3, "paused": true },
+    "items/depot": { "name": "Depot", "kind": "saving", "amount": 150, "interval": "monthly", "day": 2 },
+    "items/urlaub": { "name": "Urlaub", "kind": "saving", "amount": 333.34, "interval": "monthly", "day": null, "from": "2026-10" },
+    "months/2026-09": { "entries": [
+      { "id": "a1", "date": "2026-09-03", "amount": 12.5, "cat": "essen", "ts": 100 },
+      { "id": "a2", "date": "2026-09-16", "amount": 33.33, "cat": "essen", "ts": 200 },
+      { "id": "a3", "date": "2026-09-20", "amount": 70.01, "cat": "tanken", "ts": 300 },
+      { "id": "a4", "date": "2026-09-21", "amount": 5.55, "cat": "geloescht", "ts": 400 },
+      { "id": "a5", "date": "2026-09-25", "amount": 120, "kind": "income", "note": "Steuer", "ts": 500 },
+      { "id": "a6", "date": "2026-09-30", "amount": 410.2, "cat": "essen", "ts": 600 }
+    ], "incomeActual": { "lohn": 2234.56 } },
+    "months/2026-10": { "entries": [
+      { "id": "b1", "date": "2026-10-01", "amount": 19.99, "cat": "frei", "ts": 700 },
+      { "id": "b2", "date": "2026-10-10", "amount": 88.88, "cat": "tanken", "ts": 800 },
+      { "id": "b3", "date": "2026-10-12", "amount": 50, "kind": "income", "note": "Verkauf", "ts": 900 },
+      { "id": "b4", "date": "2026-10-20", "amount": 7.77, "cat": "essen", "ts": 1000 }
+    ], "incomeActual": {} },
+    "months/2026-11": { "entries": [
+      { "id": "c1", "date": "2026-11-02", "amount": 64.1, "cat": "essen", "ts": 1100 }
+    ] }
+  }
+}

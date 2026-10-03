@@ -28,7 +28,7 @@ const si=src.indexOf('</style>')+'</style>'.length;
 const head=src.slice(0,si),rest=src.slice(si);
 const scriptAt=rest.indexOf('<script>');
 const body=rest.slice(0,scriptAt),main=rest.slice(scriptAt);
-const html=frag.HEAD+head+'\n</head>\n<body>'+body+'<script>\n'+fs.readFileSync(path.join(SP,'ha-adapter.js'),'utf8')+'</script>\n'+main+'\n'+frag.SETUP+'</body>\n</html>\n';
+const html=frag.HEAD+head+'\n</head>\n<body>'+body+'<script>\n'+fs.readFileSync(path.join(ROOT,'core','core.js'),'utf8')+'</script>\n<script>\n'+fs.readFileSync(path.join(SP,'ha-adapter.js'),'utf8')+'</script>\n'+main+'\n'+frag.SETUP+'</body>\n</html>\n';
 fs.writeFileSync(path.join(WWW,'index.html'),html);
 for(const s of html.match(/<script>([\s\S]*?)<\/script>/g))new Function(s.replace(/^<script>|<\/script>$/g,''));
 
